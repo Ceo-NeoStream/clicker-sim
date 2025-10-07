@@ -1,109 +1,139 @@
-<!DOCTYPE html>
+<!doctype html>
+
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Mini Clicker Game 💰</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MonChatIA — Prototype</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background: linear-gradient(135deg, #4facfe, #00f2fe);
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      color: white;
+    :root{
+      --bg:#0f1724; --card:#111827; --muted:#9CA3AF; --accent:#60A5FA; --glass: rgba(255,255,255,0.04);
+      --bubble-user: linear-gradient(135deg,#2563EB 0%, #60A5FA 100%);
+      --bubble-ai: #111827; --maxw:720px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
     }
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071028 0%, #071623 100%);color:#E6EEF3}
+    .wrap{max-width:var(--maxw);margin:36px auto;padding:20px}.card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:18px;box-shadow:0 6px 30px rgba(2,6,23,.6);border:1px solid rgba(255,255,255,0.03)}
 
-    h1 {
-      font-size: 2.5em;
-      margin-bottom: 10px;
-    }
+header{display:flex;align-items:center;gap:12px}
+.logo{width:48px;height:48px;border-radius:10px;background:var(--glass);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent)}
+h1{font-size:18px;margin:0}
+p.lead{margin:4px 0 0;color:var(--muted);font-size:13px}
 
-    #clickButton {
-      background-color: #ffcd3c;
-      border: none;
-      border-radius: 15px;
-      padding: 20px 40px;
-      font-size: 1.5em;
-      cursor: pointer;
-      transition: 0.2s;
-      box-shadow: 0 4px 0 #c29b00;
-    }
+.chat-area{height:60vh;min-height:340px;max-height:68vh;overflow:auto;padding:12px;margin:18px 0;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));border:1px solid rgba(255,255,255,0.02)}
 
-    #clickButton:active {
-      transform: scale(0.95);
-      box-shadow: 0 2px 0 #c29b00;
-    }
+.msg{display:flex;gap:12px;margin:10px 6px}
+.msg.user{justify-content:flex-end}
+.bubble{max-width:74%;padding:12px 14px;border-radius:12px;font-size:14px;line-height:1.4}
+.bubble.ai{background:var(--bubble-ai);border:1px solid rgba(255,255,255,0.03);color:#E6EEF3}
+.bubble.user{background:var(--bubble-user);color:white;border-radius:14px}
 
-    #upgradeButton {
-      background-color: #34eb77;
-      border: none;
-      border-radius: 10px;
-      padding: 10px 20px;
-      margin-top: 20px;
-      cursor: pointer;
-      font-size: 1.2em;
-      transition: 0.2s;
-    }
+.meta{font-size:11px;color:var(--muted);margin-top:6px}
 
-    #upgradeButton:disabled {
-      background-color: gray;
-      cursor: not-allowed;
-    }
+.composer{display:flex;gap:8px;align-items:center}
+.input{flex:1;display:flex;align-items:center;background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:10px}
+textarea{width:100%;border:0;background:transparent;color:inherit;outline:none;resize:none;font-size:14px;padding:6px}
+button.send{background:linear-gradient(90deg,#2563EB,#60A5FA);border:0;padding:10px 14px;border-radius:10px;color:white;font-weight:600;cursor:pointer}
+button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px 10px;border-radius:10px;color:var(--muted);cursor:pointer}
 
-    #stats {
-      margin-top: 20px;
-      font-size: 1.3em;
-    }
+footer.note{margin-top:12px;color:var(--muted);font-size:13px}
+
+@media (max-width:520px){:root{--maxw:96vw}.chat-area{height:56vh}}
+
   </style>
 </head>
 <body>
+  <div class="wrap">
+    <div class="card">
+      <header>
+        <div class="logo">IA</div>
+        <div>
+          <h1>MonChatIA — Prototype</h1>
+          <p class="lead">Prototype d'interface de chat. Texte -> Clique envoyer pour tester.</p>
+        </div>
+      </header><div id="chat" class="chat-area" role="log" aria-live="polite"></div>
 
-  <h1>💸 Clicker Game 💸</h1>
-  <h2 id="money">0 clicks</h2>
-
-  <button id="clickButton">Clique moi 😁</button>
-
-  <div id="stats">
-    <p>Multiplicateur : <span id="multiplier">x1</span></p>
-    <p>Prix de l'amélioration : <span id="upgradeCost">50</span> clicks</p>
-    <button id="upgradeButton">Acheter amélioration</button>
+  <div style="display:flex;gap:10px;align-items:center;margin-top:10px">
+    <div class="composer" style="flex:1">
+      <div class="input">
+        <textarea id="input" rows="1" placeholder="Pose ta question..." oninput="autoGrow(this)"></textarea>
+      </div>
+    </div>
+    <button class="secondary" id="btn-sample">Exemple</button>
+    <button class="send" id="btn-send">Envoyer</button>
   </div>
 
-  <script>
-    let clicks = 0;
-    let multiplier = 1;
-    let upgradeCost = 50;
+  <div class="note" style="margin-top:10px;color:var(--muted)">Connexion API: <code>/api/chat</code> (placeholder). Le bouton <strong>Exemple</strong> remplit le champ.</div>
+</div>
+<p class="note">Astuce: pour connecter ton backend, fais un POST JSON vers <code>/api/chat</code> avec {"question":"..."} et attends {"answer":"..."}.</p>
 
-    const moneyDisplay = document.getElementById("money");
-    const multiplierDisplay = document.getElementById("multiplier");
-    const upgradeCostDisplay = document.getElementById("upgradeCost");
-    const upgradeButton = document.getElementById("upgradeButton");
+  </div>  <script>
+    // Petite UI JS (frontend uniquement). Il n'y a pas de backend par défaut.
+    const chat = document.getElementById('chat');
+    const input = document.getElementById('input');
+    const btnSend = document.getElementById('btn-send');
+    const btnSample = document.getElementById('btn-sample');
 
-    document.getElementById("clickButton").addEventListener("click", () => {
-      clicks += multiplier;
-      updateDisplay();
+    function appendMessage(text, who='ai', meta=''){
+      const m = document.createElement('div');
+      m.className = 'msg ' + (who==='user' ? 'user' : 'ai');
+      const b = document.createElement('div');
+      b.className = 'bubble ' + (who==='user' ? 'user' : 'ai');
+      b.textContent = text;
+      m.appendChild(b);
+      if(meta){
+        const mm = document.createElement('div');
+        mm.className = 'meta';
+        mm.textContent = meta;
+        m.appendChild(mm);
+      }
+      chat.appendChild(m);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function autoGrow(el){ el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; }
+
+    btnSample.addEventListener('click', ()=>{ input.value = 'Explique-moi le concept de TF-IDF en une phrase.'; autoGrow(input); input.focus(); });
+
+    btnSend.addEventListener('click', async ()=>{
+      const q = input.value.trim();
+      if(!q) return;
+      appendMessage(q, 'user');
+      input.value = '';
+      autoGrow(input);
+
+      // Afficher un loader temporaire
+      const loaderId = 'loading-'+Date.now();
+      appendMessage('…', 'ai');
+      const aiBubble = chat.querySelector('.msg.ai:last-child .bubble');
+      aiBubble.style.opacity = 0.6;
+
+      try{
+        // TODO: Remplace l'URL ci-dessous par ton endpoint réel quand tu auras un backend
+        const resp = await fetch('/api/chat', {
+          method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({question:q})
+        });
+        if(!resp.ok) throw new Error('Pas de backend (simulateur)');
+        const data = await resp.json();
+        aiBubble.textContent = data.answer || 'Aucune réponse fournie par le serveur.';
+        aiBubble.style.opacity = 1;
+      }catch(err){
+        // Pas de backend: on simule une réponse simple pour la démo
+        aiBubble.textContent = "(simulation) Réponse automatique: je ne suis pas connecté au backend."
+        aiBubble.style.opacity = 1;
+      }
+
+      chat.scrollTop = chat.scrollHeight;
     });
 
-    upgradeButton.addEventListener("click", () => {
-      if (clicks >= upgradeCost) {
-        clicks -= upgradeCost;
-        multiplier++;
-        upgradeCost = Math.floor(upgradeCost * 1.5);
-        updateDisplay();
-      } else {
-        alert("Pas assez de clicks !");
+    // Permet envoi avec ctrl+Enter
+    input.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)){
+        e.preventDefault(); btnSend.click();
       }
     });
 
-    function updateDisplay() {
-      moneyDisplay.textContent = `${clicks} clicks`;
-      multiplierDisplay.textContent = `x${multiplier}`;
-      upgradeCostDisplay.textContent = upgradeCost;
-      upgradeButton.disabled = clicks < upgradeCost;
-    }
-  </script>
-</body>
+    // message de bienvenue
+    appendMessage("Salut 👋 — ce prototype attend un backend sur /api/chat. Clique 'Exemple' puis 'Envoyer' pour tester.", 'ai');
+  </script></body>
 </html>
