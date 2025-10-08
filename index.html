@@ -14,14 +14,8 @@
     user-select: none;
   }
 
-  h1 {
-    margin-top: 10px;
-  }
-
-  #score {
-    font-size: 22px;
-    margin-bottom: 10px;
-  }
+  h1 { margin-top: 10px; }
+  #score { font-size: 22px; margin-bottom: 10px; }
 
   #grid {
     display: grid;
@@ -30,6 +24,7 @@
     gap: 4px;
     justify-content: center;
     margin: 10px auto;
+    position: relative;
   }
 
   .cell {
@@ -39,10 +34,7 @@
     border-radius: 6px;
     transition: 0.2s;
   }
-
-  .cell.active {
-    background: #4cc9f0;
-  }
+  .cell.active { background: #4cc9f0; }
 
   #blocks {
     display: flex;
@@ -56,6 +48,7 @@
     grid-gap: 3px;
     cursor: grab;
     touch-action: none;
+    position: relative;
   }
 
   .block div {
@@ -82,52 +75,57 @@
 
 <script>
 const gridSize = 8;
+const cellSize = 54; // 50px + 4px de gap
 let score = 0;
-const grid = document.getElementById("grid");
-const scoreDisplay = document.getElementById("score");
-const blocksContainer = document.getElementById("blocks");
 let gridCells = [];
 let draggingBlock = null;
 let offsetX = 0;
 let offsetY = 0;
+const grid = document.getElementById("grid");
+const blocksContainer = document.getElementById("blocks");
+const scoreDisplay = document.getElementById("score");
 
-// Création de la grille
+// Génère la grille
 for (let i = 0; i < gridSize * gridSize; i++) {
   const cell = document.createElement("div");
   cell.classList.add("cell");
-  cell.dataset.index = i;
   grid.appendChild(cell);
   gridCells.push(cell);
 }
 
-// Formes disponibles
+// Coordonnées du coin supérieur gauche de la grille
+function getGridRect() {
+  return grid.getBoundingClientRect();
+}
+
+// Liste des formes
 const shapes = [
-  [[1]], [[1, 1]], [[1],[1]], [[1, 1, 1]], [[1],[1],[1]],
+  [[1]], [[1,1]], [[1],[1]], [[1,1,1]], [[1],[1],[1]],
   [[1,1],[1,0]], [[1,1],[0,1]], [[1,1],[1,1]],
   [[1,1,1],[0,1,0]], [[0,1,1],[1,1,0]], [[1,1,0],[0,1,1]]
 ];
 
-// Crée 3 blocs
+// Génère 3 blocs aléatoires
 function generateBlocks() {
   blocksContainer.innerHTML = "";
   for (let i = 0; i < 3; i++) {
     const shape = shapes[Math.floor(Math.random() * shapes.length)];
-    const block = createBlockElement(shape);
+    const block = createBlock(shape);
     blocksContainer.appendChild(block);
   }
 }
 
 // Crée un bloc HTML
-function createBlockElement(shape) {
+function createBlock(shape) {
   const block = document.createElement("div");
   block.classList.add("block");
   block.style.gridTemplateColumns = `repeat(${shape[0].length}, 25px)`;
   block.shape = shape;
 
   shape.forEach(row => {
-    row.forEach(cell => {
+    row.forEach(c => {
       const div = document.createElement("div");
-      if (cell === 1) block.appendChild(div);
+      if (c === 1) block.appendChild(div);
       else {
         const empty = document.createElement("div");
         empty.style.visibility = "hidden";
@@ -136,69 +134,80 @@ function createBlockElement(shape) {
     });
   });
 
-  // Ajout des événements de glisser-déposer
   enableDrag(block);
   return block;
 }
 
+// Active le glisser sur souris + tactile
 function enableDrag(block) {
-  const startDrag = (e) => {
+  let startX, startY;
+
+  const start = (e) => {
     e.preventDefault();
+    const pos = getPos(e);
+    startX = pos.x; startY = pos.y;
+
     draggingBlock = block.cloneNode(true);
     draggingBlock.classList.add("dragging");
     draggingBlock.shape = block.shape;
     document.body.appendChild(draggingBlock);
 
-    const pos = getEventPosition(e);
-    offsetX = pos.x - block.getBoundingClientRect().left;
-    offsetY = pos.y - block.getBoundingClientRect().top;
-    moveDrag(e);
+    const rect = block.getBoundingClientRect();
+    offsetX = pos.x - rect.left;
+    offsetY = pos.y - rect.top;
+    move(e);
   };
 
-  const moveDrag = (e) => {
+  const move = (e) => {
     if (!draggingBlock) return;
-    const pos = getEventPosition(e);
-    draggingBlock.style.left = pos.x - offsetX + "px";
-    draggingBlock.style.top = pos.y - offsetY + "px";
+    const pos = getPos(e);
+    draggingBlock.style.left = (pos.x - offsetX) + "px";
+    draggingBlock.style.top = (pos.y - offsetY) + "px";
   };
 
-  const endDrag = (e) => {
+  const end = (e) => {
     if (!draggingBlock) return;
-    const pos = getEventPosition(e);
-    const dropCell = document.elementFromPoint(pos.x, pos.y);
-    if (dropCell && dropCell.classList.contains("cell")) {
-      const index = parseInt(dropCell.dataset.index);
-      if (placeBlock(index, draggingBlock.shape)) {
-        block.remove();
-        if (blocksContainer.children.length === 0) generateBlocks();
-      }
-    }
+    const gridRect = getGridRect();
+    const pos = getPos(e);
+    const shape = draggingBlock.shape;
+
+    // Trouver la cellule la plus proche du centre du bloc
+    const blockRect = draggingBlock.getBoundingClientRect();
+    const centerX = blockRect.left + blockRect.width / 2;
+    const centerY = blockRect.top + blockRect.height / 2;
+
+    const col = Math.floor((centerX - gridRect.left) / cellSize);
+    const row = Math.floor((centerY - gridRect.top) / cellSize);
+    const index = row * gridSize + col;
+
+    const valid = placeBlock(row, col, shape);
+    if (valid) block.remove();
+
     draggingBlock.remove();
     draggingBlock = null;
+
+    if (blocksContainer.children.length === 0) generateBlocks();
   };
 
-  block.addEventListener("mousedown", startDrag);
-  block.addEventListener("touchstart", startDrag);
-
-  window.addEventListener("mousemove", moveDrag);
-  window.addEventListener("touchmove", moveDrag);
-
-  window.addEventListener("mouseup", endDrag);
-  window.addEventListener("touchend", endDrag);
+  block.addEventListener("mousedown", start);
+  block.addEventListener("touchstart", start);
+  window.addEventListener("mousemove", move);
+  window.addEventListener("touchmove", move);
+  window.addEventListener("mouseup", end);
+  window.addEventListener("touchend", end);
 }
 
-// Coordonnées de l’événement (souris ou tactile)
-function getEventPosition(e) {
-  if (e.touches && e.touches.length > 0)
+// Obtenir position (souris/tactile)
+function getPos(e) {
+  if (e.touches && e.touches[0])
     return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-  else
-    return { x: e.clientX, y: e.clientY };
+  return { x: e.clientX, y: e.clientY };
 }
 
 // Place un bloc sur la grille
-function placeBlock(startIndex, shape) {
-  const startRow = Math.floor(startIndex / gridSize);
-  const startCol = startIndex % gridSize;
+function placeBlock(startRow, startCol, shape) {
+  if (startRow < 0 || startCol < 0) return false;
+  if (startRow >= gridSize || startCol >= gridSize) return false;
 
   // Vérifie la validité
   for (let r = 0; r < shape.length; r++) {
@@ -207,8 +216,8 @@ function placeBlock(startIndex, shape) {
         const row = startRow + r;
         const col = startCol + c;
         if (row >= gridSize || col >= gridSize) return false;
-        const index = row * gridSize + col;
-        if (gridCells[index].classList.contains("active")) return false;
+        const idx = row * gridSize + col;
+        if (gridCells[idx].classList.contains("active")) return false;
       }
     }
   }
@@ -217,8 +226,8 @@ function placeBlock(startIndex, shape) {
   for (let r = 0; r < shape.length; r++) {
     for (let c = 0; c < shape[r].length; c++) {
       if (shape[r][c] === 1) {
-        const index = (startRow + r) * gridSize + (startCol + c);
-        gridCells[index].classList.add("active");
+        const idx = (startRow + r) * gridSize + (startCol + c);
+        gridCells[idx].classList.add("active");
       }
     }
   }
@@ -227,28 +236,27 @@ function placeBlock(startIndex, shape) {
   return true;
 }
 
-// Vérifie les lignes et colonnes pleines
+// Vérifie les lignes/colonnes pleines
 function checkFullLines() {
   let linesCleared = 0;
 
   // Lignes
-  for (let row = 0; row < gridSize; row++) {
-    const start = row * gridSize;
+  for (let r = 0; r < gridSize; r++) {
+    const start = r * gridSize;
     const rowCells = gridCells.slice(start, start + gridSize);
-    if (rowCells.every(cell => cell.classList.contains("active"))) {
-      rowCells.forEach(cell => cell.classList.remove("active"));
+    if (rowCells.every(c => c.classList.contains("active"))) {
+      rowCells.forEach(c => c.classList.remove("active"));
       linesCleared++;
     }
   }
 
   // Colonnes
-  for (let col = 0; col < gridSize; col++) {
+  for (let c = 0; c < gridSize; c++) {
     const colCells = [];
-    for (let row = 0; row < gridSize; row++) {
-      colCells.push(gridCells[row * gridSize + col]);
-    }
-    if (colCells.every(cell => cell.classList.contains("active"))) {
-      colCells.forEach(cell => cell.classList.remove("active"));
+    for (let r = 0; r < gridSize; r++)
+      colCells.push(gridCells[r * gridSize + c]);
+    if (colCells.every(c => c.classList.contains("active"))) {
+      colCells.forEach(c => c.classList.remove("active"));
       linesCleared++;
     }
   }
@@ -261,6 +269,5 @@ function checkFullLines() {
 
 generateBlocks();
 </script>
-
 </body>
 </html>
