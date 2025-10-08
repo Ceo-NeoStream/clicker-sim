@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Block Puzzle 8x8</title>
+<title>Block Puzzle Auto Placement</title>
 <style>
   body {
     background: #1e1e2f;
@@ -14,7 +14,6 @@
     user-select: none;
   }
 
-  h1 { margin-top: 10px; }
   #score { font-size: 22px; margin-bottom: 10px; }
 
   #grid {
@@ -23,7 +22,7 @@
     grid-template-rows: repeat(8, 50px);
     gap: 4px;
     justify-content: center;
-    margin: 10px auto;
+    margin: 20px auto;
     position: relative;
   }
 
@@ -39,7 +38,7 @@
   #blocks {
     display: flex;
     justify-content: center;
-    gap: 20px;
+    gap: 25px;
     margin-top: 30px;
   }
 
@@ -61,8 +60,9 @@
   .dragging {
     position: absolute;
     pointer-events: none;
-    opacity: 0.8;
-    transform: scale(1.2);
+    opacity: 0.85;
+    transform: scale(1.15);
+    z-index: 1000;
   }
 </style>
 </head>
@@ -81,11 +81,13 @@ let gridCells = [];
 let draggingBlock = null;
 let offsetX = 0;
 let offsetY = 0;
+let startX = 0;
+let startY = 0;
 const grid = document.getElementById("grid");
 const blocksContainer = document.getElementById("blocks");
 const scoreDisplay = document.getElementById("score");
 
-// Génère la grille
+// Créer la grille
 for (let i = 0; i < gridSize * gridSize; i++) {
   const cell = document.createElement("div");
   cell.classList.add("cell");
@@ -93,12 +95,11 @@ for (let i = 0; i < gridSize * gridSize; i++) {
   gridCells.push(cell);
 }
 
-// Coordonnées du coin supérieur gauche de la grille
 function getGridRect() {
   return grid.getBoundingClientRect();
 }
 
-// Liste des formes
+// Différentes formes
 const shapes = [
   [[1]], [[1,1]], [[1],[1]], [[1,1,1]], [[1],[1],[1]],
   [[1,1],[1,0]], [[1,1],[0,1]], [[1,1],[1,1]],
@@ -138,14 +139,13 @@ function createBlock(shape) {
   return block;
 }
 
-// Active le glisser sur souris + tactile
+// Active le glisser / déposer
 function enableDrag(block) {
-  let startX, startY;
-
   const start = (e) => {
     e.preventDefault();
     const pos = getPos(e);
-    startX = pos.x; startY = pos.y;
+    startX = pos.x;
+    startY = pos.y;
 
     draggingBlock = block.cloneNode(true);
     draggingBlock.classList.add("dragging");
@@ -168,24 +168,22 @@ function enableDrag(block) {
   const end = (e) => {
     if (!draggingBlock) return;
     const gridRect = getGridRect();
-    const pos = getPos(e);
     const shape = draggingBlock.shape;
+    const blockRect = draggingBlock.getBoundingClientRect();
 
     // Trouver la cellule la plus proche du centre du bloc
-    const blockRect = draggingBlock.getBoundingClientRect();
     const centerX = blockRect.left + blockRect.width / 2;
     const centerY = blockRect.top + blockRect.height / 2;
-
     const col = Math.floor((centerX - gridRect.left) / cellSize);
     const row = Math.floor((centerY - gridRect.top) / cellSize);
-    const index = row * gridSize + col;
 
     const valid = placeBlock(row, col, shape);
-    if (valid) block.remove();
 
+    if (valid) block.remove();
     draggingBlock.remove();
     draggingBlock = null;
 
+    // Regénère 3 blocs si tous utilisés
     if (blocksContainer.children.length === 0) generateBlocks();
   };
 
@@ -197,7 +195,6 @@ function enableDrag(block) {
   window.addEventListener("touchend", end);
 }
 
-// Obtenir position (souris/tactile)
 function getPos(e) {
   if (e.touches && e.touches[0])
     return { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -207,16 +204,19 @@ function getPos(e) {
 // Place un bloc sur la grille
 function placeBlock(startRow, startCol, shape) {
   if (startRow < 0 || startCol < 0) return false;
-  if (startRow >= gridSize || startCol >= gridSize) return false;
 
-  // Vérifie la validité
+  // Ajustement pour qu’il se colle bien dans la grille
+  startRow = Math.round(startRow);
+  startCol = Math.round(startCol);
+
+  if (startRow + shape.length > gridSize || startCol + shape[0].length > gridSize)
+    return false;
+
+  // Vérifie si ça chevauche un bloc
   for (let r = 0; r < shape.length; r++) {
     for (let c = 0; c < shape[r].length; c++) {
       if (shape[r][c] === 1) {
-        const row = startRow + r;
-        const col = startCol + c;
-        if (row >= gridSize || col >= gridSize) return false;
-        const idx = row * gridSize + col;
+        const idx = (startRow + r) * gridSize + (startCol + c);
         if (gridCells[idx].classList.contains("active")) return false;
       }
     }
@@ -236,33 +236,29 @@ function placeBlock(startRow, startCol, shape) {
   return true;
 }
 
-// Vérifie les lignes/colonnes pleines
+// Supprime les lignes / colonnes pleines
 function checkFullLines() {
-  let linesCleared = 0;
+  let cleared = 0;
 
-  // Lignes
   for (let r = 0; r < gridSize; r++) {
-    const start = r * gridSize;
-    const rowCells = gridCells.slice(start, start + gridSize);
-    if (rowCells.every(c => c.classList.contains("active"))) {
-      rowCells.forEach(c => c.classList.remove("active"));
-      linesCleared++;
+    const row = gridCells.slice(r * gridSize, (r + 1) * gridSize);
+    if (row.every(c => c.classList.contains("active"))) {
+      row.forEach(c => c.classList.remove("active"));
+      cleared++;
     }
   }
 
-  // Colonnes
   for (let c = 0; c < gridSize; c++) {
-    const colCells = [];
-    for (let r = 0; r < gridSize; r++)
-      colCells.push(gridCells[r * gridSize + c]);
-    if (colCells.every(c => c.classList.contains("active"))) {
-      colCells.forEach(c => c.classList.remove("active"));
-      linesCleared++;
+    const col = [];
+    for (let r = 0; r < gridSize; r++) col.push(gridCells[r * gridSize + c]);
+    if (col.every(c => c.classList.contains("active"))) {
+      col.forEach(c => c.classList.remove("active"));
+      cleared++;
     }
   }
 
-  if (linesCleared > 0) {
-    score += linesCleared * 10;
+  if (cleared > 0) {
+    score += cleared * 10;
     scoreDisplay.textContent = "Score : " + score;
   }
 }
