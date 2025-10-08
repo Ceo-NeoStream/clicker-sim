@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Block Puzzle Auto Placement</title>
+<title>Block Puzzle Taille Réelle</title>
 <style>
   body {
     background: #1e1e2f;
@@ -14,7 +14,10 @@
     user-select: none;
   }
 
-  #score { font-size: 22px; margin-bottom: 10px; }
+  #score {
+    font-size: 22px;
+    margin-bottom: 10px;
+  }
 
   #grid {
     display: grid;
@@ -44,25 +47,25 @@
 
   .block {
     display: inline-grid;
-    grid-gap: 3px;
+    grid-gap: 4px;
     cursor: grab;
     touch-action: none;
     position: relative;
   }
 
   .block div {
-    width: 25px;
-    height: 25px;
+    width: 50px;
+    height: 50px;
     background: #4cc9f0;
-    border-radius: 4px;
+    border-radius: 6px;
   }
 
   .dragging {
     position: absolute;
     pointer-events: none;
-    opacity: 0.85;
-    transform: scale(1.15);
+    opacity: 0.9;
     z-index: 1000;
+    transform: scale(1);
   }
 </style>
 </head>
@@ -120,7 +123,7 @@ function generateBlocks() {
 function createBlock(shape) {
   const block = document.createElement("div");
   block.classList.add("block");
-  block.style.gridTemplateColumns = `repeat(${shape[0].length}, 25px)`;
+  block.style.gridTemplateColumns = `repeat(${shape[0].length}, 50px)`;
   block.shape = shape;
 
   shape.forEach(row => {
@@ -171,7 +174,7 @@ function enableDrag(block) {
     const shape = draggingBlock.shape;
     const blockRect = draggingBlock.getBoundingClientRect();
 
-    // Trouver la cellule la plus proche du centre du bloc
+    // Trouver la cellule la plus proche du centre
     const centerX = blockRect.left + blockRect.width / 2;
     const centerY = blockRect.top + blockRect.height / 2;
     const col = Math.floor((centerX - gridRect.left) / cellSize);
@@ -204,8 +207,6 @@ function getPos(e) {
 // Place un bloc sur la grille
 function placeBlock(startRow, startCol, shape) {
   if (startRow < 0 || startCol < 0) return false;
-
-  // Ajustement pour qu’il se colle bien dans la grille
   startRow = Math.round(startRow);
   startCol = Math.round(startCol);
 
